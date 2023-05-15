@@ -35,6 +35,10 @@ contract MinimalCreate2Factory {
     32 bytes more. Since `salt` needs to be pushed to the stack we can directly use CALLDATALOAD
     with adequate parameter. Zero is an easier offset than using the length of creationCode first,
     so let's try (bytes32 salt, bytes creationCode):
+    this gets encoded as [uint256 salt, uint256(0x40), uint256 len(creationCode), enc(creationCode[0]), enc(creationCode[1], ...]
+    which actually wastes 2x 32 bytes for the position and length encoding and makes the code unnecessarily complicated.
+    In contrast [`abi.encodePacked()`](https://docs.soliditylang.org/en/develop/abi-spec.html#non-standard-packed-mode)
+    should be more tight, [uint256 salt, bytes creationCode]
 
     OPCODE      | INSTRUCTION       | STACK             | COMMENT
     ------------+-------------------+-------------------+------------------------------------------------------------------
@@ -47,7 +51,7 @@ contract MinimalCreate2Factory {
     ------------+-------------------+-------------------+------------------------------------------------------------------
     0x6020      | PUSH1 0x20        | 0x20 salt         |
     0x36        | CALLDATASIZE      | cds 0x20 salt     |
-    0x03        | SUB               | cds-32 salt       | len(enc(creationCode) = CALLDATASIZE - 32 =: lc
+    0x03        | SUB               | lc:=cds-32 salt   | len(enc(creationCode) = CALLDATASIZE - 32 =: lc
     0x80        | DUP1              | lc lc salt        | we need the length later again
     0x6020      | PUSH1 0x20        | 0x20 lc lc salt   | can this be optimized using the previous 0x20? PUSH1, DUPx and SWAPx need 3 gas each though
     0x3d        | RETURNDATASIZE    | 0 0x20 lc lc salt |
@@ -91,7 +95,7 @@ contract MinimalCreate2Factory {
   }
 
   function create2(bytes32 salt, bytes calldata createCode) external payable returns (bytes memory) {
-    (bool success, bytes memory retval) = minimalCreate2Factory.call{value: msg.value}(abi.encode(salt, createCode));
+    (bool success, bytes memory retval) = minimalCreate2Factory.call{value: msg.value}(abi.encodePacked(salt, createCode));
     require(success);
     return retval;
   }
