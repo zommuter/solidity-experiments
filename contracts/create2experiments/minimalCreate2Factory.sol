@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+// https://sepolia.etherscan.io/address/0x92fb0f60049cbef1886d87defadcd7a8efc1d129#code
+// deployed at https://sepolia.etherscan.io/address/0xAc9E50311452d4fE0E0Cb13bE015E5F5551705c0#code
+
 contract MinimalCreate2Factory {
   /**
     @notice The bytecode for a contract that proxies the creation of another contract
@@ -74,10 +77,22 @@ contract MinimalCreate2Factory {
   */
 
   event Created(address);
+  address public immutable minimalCreate2Factory;
 
   constructor () {
-    bytes memory proxyCode = hex'3d35602036038060203d373d34f5';
+    //bytes memory proxyCode = hex'3d35602036038060203d373d34f5';
+    bytes memory createCode = hex'6d3d35602036038060203d373d34f53d52600e6012f3';
     emit Created(address(this));
-    assembly { return(add(proxyCode, 0x20), mload(proxyCode)) }
+    //assembly { return(add(proxyCode, 0x20), mload(proxyCode)) } // https://sepolia.etherscan.io/address/0xe39b583c543ba273314f85144ed7390bba1b2f22#code
+    address addr;
+    assembly { addr := create(callvalue(), add(createCode, 0x20), mload(createCode)) }
+    minimalCreate2Factory = addr;
+    emit Created(minimalCreate2Factory);
+  }
+
+  function create2(bytes32 salt, bytes calldata createCode) external payable returns (bytes memory) {
+    (bool success, bytes memory retval) = minimalCreate2Factory.call{value: msg.value}(abi.encode(salt, createCode));
+    require(success);
+    return retval;
   }
 }
