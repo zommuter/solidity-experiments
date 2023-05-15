@@ -71,5 +71,13 @@ contract MinimalCreate2Factory {
 
     so in summary the createCode is
     0x6d3d35602036038060203d373d34f53d52600e6012f3
-  */    
+  */
+
+  event Created(address);
+
+  constructor () {
+    bytes memory proxyCode = hex'3d35602036038060203d373d34f5';
+    emit Created(address(this));
+    assembly { return(add(proxyCode, 0x20), mload(proxyCode)) }
+  }
 }
