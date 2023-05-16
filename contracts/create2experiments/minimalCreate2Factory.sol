@@ -104,13 +104,14 @@ contract MinimalCreate2Factory {
 
   bytes constant pushProxyCode = abi.encodePacked(hex'74', proxyCode, hex'3d52');
   bytes constant returnProxyCode = hex'6015_600b_f3';  // TODO maybe calculate this "magically"
-  bytes constant createCode = abi.encodePacked(pushProxyCode, returnProxyCode);
+  bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
 
   bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
   constructor () {
     //bytes memory createCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
     //assert(createCode.equals(rawCode)); // TODO, see https://github.com/ethereum/solidity-examples/blob/master/examples/bytes/BytesExamples.sol#L14 and https://github.com/ethereum/solidity-examples/blob/master/src/bytes/Bytes.sol
-    bytes memory createCodeMem = createCode;
+    assert(keccak256(proxyCreateCode) == keccak256(rawCode));
+    bytes memory createCodeMem = proxyCreateCode;
     emit Created(address(this));
     address addr;
     assembly { addr := create(callvalue(), add(createCodeMem, 0x20), mload(createCodeMem)) }
