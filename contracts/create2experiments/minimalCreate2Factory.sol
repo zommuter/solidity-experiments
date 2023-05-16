@@ -4,16 +4,23 @@ pragma solidity ^0.8.18;
 library TinyCreate2 {
   // TODO document the blocks
   // TODO using [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855) 0x5f PUSH0
+  bytes1 constant SUB = hex'03';
+  bytes1 constant CALLVALUE = hex'34';
+  bytes1 constant CALLDATALOAD = hex'35';
+  bytes1 constant CALLDATASIZE = hex'36';
+  bytes1 constant CALLDATACOPY = hex'37';
   bytes1 constant RETURNDATASIZE = hex'3d';
   bytes1 constant PUSH0 = RETURNDATASIZE;  // 0x5f from EIP-3855 could be used as well, but not sure if all relevant chains support that yet
-  bytes1 constant CALLDATALOAD = hex'35';
+  bytes1 constant MSTORE = hex'52';
+  bytes1 constant PUSH1 = hex'60';
+  bytes1 constant DUP1 = hex'80';
+  bytes1 constant RETURN = hex'f3';
+  bytes1 constant CREATE2 = hex'f5';
+
+  uint8 constant ADDRLEN = 20;
+
   bytes constant loadSalt = abi.encodePacked(PUSH0, CALLDATALOAD);  // hex'3d35';
 
-  bytes1 constant PUSH1 = hex'60';
-  bytes1 constant CALLDATASIZE = hex'36';
-  bytes1 constant SUB = hex'03';
-  bytes1 constant DUP1 = hex'80';
-  bytes1 constant CALLDATACOPY = hex'37';
   bytes constant copyCreationCode = abi.encodePacked(
     PUSH1, uint8(32),
     CALLDATASIZE, SUB,
@@ -21,15 +28,10 @@ library TinyCreate2 {
     CALLDATACOPY
   );  //*/ hex'6020_3603_80_60203d_37';
   
-  bytes1 constant CALLVALUE = hex'34';
-  bytes1 constant CREATE2 = hex'f5';
   bytes constant create2call = abi.encodePacked(
     PUSH0, CALLVALUE, CREATE2
   ); //*/ hex'3d34f5';
 
-  bytes1 constant MSTORE = hex'52';
-  bytes1 constant RETURN = hex'f3';
-  uint8 constant ADDRLEN = 20;
   bytes constant returnAddr = abi.encodePacked(
     PUSH0, MSTORE,
     PUSH1, ADDRLEN,
@@ -54,11 +56,13 @@ library TinyCreate2 {
     proxyCode,
     PUSH0, MSTORE // hex'3d52'
   );
+
   bytes constant returnProxyCode = abi.encodePacked(
     PUSH1, proxyCodeLength,
     PUSH1, 32 - proxyCodeLength,
     RETURN
   );
+
   bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
 
   bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
