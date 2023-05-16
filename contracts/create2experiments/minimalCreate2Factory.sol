@@ -1,6 +1,69 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+library TinyCreate2 {
+  // TODO document the blocks
+  // TODO using [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855) 0x5f PUSH0
+  bytes1 constant RETURNDATASIZE = hex'3d';
+  bytes1 constant PUSH0 = RETURNDATASIZE;  // 0x5f from EIP-3855 could be used as well, but not sure if all relevant chains support that yet
+  bytes1 constant CALLDATALOAD = hex'35';
+  bytes constant loadSalt = abi.encodePacked(PUSH0, CALLDATALOAD);  // hex'3d35';
+
+  bytes1 constant PUSH1 = hex'60';
+  bytes1 constant CALLDATASIZE = hex'36';
+  bytes1 constant SUB = hex'03';
+  bytes1 constant DUP1 = hex'80';
+  bytes1 constant CALLDATACOPY = hex'37';
+  bytes constant copyCreationCode = abi.encodePacked(
+    PUSH1, uint8(32),
+    CALLDATASIZE, SUB,
+    DUP1, PUSH1, uint8(32), PUSH0,
+    CALLDATACOPY
+  );  //*/ hex'6020_3603_80_60203d_37';
+  
+  bytes1 constant CALLVALUE = hex'34';
+  bytes1 constant CREATE2 = hex'f5';
+  bytes constant create2call = abi.encodePacked(
+    PUSH0, CALLVALUE, CREATE2
+  ); //*/ hex'3d34f5';
+
+  bytes1 constant MSTORE = hex'52';
+  bytes1 constant RETURN = hex'f3';
+  uint8 constant ADDRLEN = 20;
+  bytes constant returnAddr = abi.encodePacked(
+    PUSH0, MSTORE,
+    PUSH1, ADDRLEN,
+    PUSH1, 32 - ADDRLEN,
+    RETURN
+  ); //*/ hex'3d52_6014_600c_f3';
+
+  bytes constant proxyCode = abi.encodePacked(
+    // hexcode        //    gas | stack       | comments
+    loadSalt,         //      5 | salt        | 
+    copyCreationCode, //     19 + 3*data_size_words + mem_expansion_cost
+    create2call,      //  32004 + 6*data_size_words + mem_expansion_cost + code_deposit_cost
+    returnAddr        //     11 + mem_expansion_cost
+    //                //  32039 + 9*data_size_words + mem_expansion_costs + code_deposit_cost
+  );
+  uint8 constant proxyCodeLength = 21;  // unfortunately can't use proxyCode.length for a constant, so this needs to be adapted...
+  //uint immutable proxyCodeLength = proxyCode.length;  // immutable works, but that's not ideal in terms of gas and memory
+
+  //bytes constant pushProxyCode = abi.encodePacked(hex'74', proxyCode, hex'3d52');
+  bytes constant pushProxyCode = abi.encodePacked(
+    uint8(PUSH1) - 1 + proxyCodeLength, //hex'74' corresponds to PUSH21,
+    proxyCode,
+    PUSH0, MSTORE // hex'3d52'
+  );
+  bytes constant returnProxyCode = abi.encodePacked(
+    PUSH1, proxyCodeLength,
+    PUSH1, 32 - proxyCodeLength,
+    RETURN
+  );
+  bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
+
+  bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
+}
+
 contract MinimalCreate2Factory {
   /**
     @notice The bytecode for a contract that proxies the creation of another contract
@@ -95,71 +158,11 @@ contract MinimalCreate2Factory {
   event Returns(bytes);
   address public immutable minimalCreate2Factory;
 
-  // TODO document the blocks
-  // TODO using [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855) 0x5f PUSH0
-  bytes1 constant RETURNDATASIZE = hex'3d';
-  bytes1 constant PUSH0 = RETURNDATASIZE;  // 0x5f from EIP-3855 could be used as well, but not sure if all relevant chains support that yet
-  bytes1 constant CALLDATALOAD = hex'35';
-  bytes constant loadSalt = abi.encodePacked(PUSH0, CALLDATALOAD);  // hex'3d35';
-
-  bytes1 constant PUSH1 = hex'60';
-  bytes1 constant CALLDATASIZE = hex'36';
-  bytes1 constant SUB = hex'03';
-  bytes1 constant DUP1 = hex'80';
-  bytes1 constant CALLDATACOPY = hex'37';
-  bytes constant copyCreationCode = abi.encodePacked(
-    PUSH1, uint8(32),
-    CALLDATASIZE, SUB,
-    DUP1, PUSH1, uint8(32), PUSH0,
-    CALLDATACOPY
-  );  //*/ hex'6020_3603_80_60203d_37';
-  
-  bytes1 constant CALLVALUE = hex'34';
-  bytes1 constant CREATE2 = hex'f5';
-  bytes constant create2call = abi.encodePacked(
-    PUSH0, CALLVALUE, CREATE2
-  ); //*/ hex'3d34f5';
-
-  bytes1 constant MSTORE = hex'52';
-  bytes1 constant RETURN = hex'f3';
-  uint8 constant ADDRLEN = 20;
-  bytes constant returnAddr = abi.encodePacked(
-    PUSH0, MSTORE,
-    PUSH1, ADDRLEN,
-    PUSH1, 32 - ADDRLEN,
-    RETURN
-  ); //*/ hex'3d52_6014_600c_f3';
-
-  bytes constant proxyCode = abi.encodePacked(
-    // hexcode        //    gas | stack       | comments
-    loadSalt,         //      5 | salt        | 
-    copyCreationCode, //     19 + 3*data_size_words + mem_expansion_cost
-    create2call,      //  32004 + 6*data_size_words + mem_expansion_cost + code_deposit_cost
-    returnAddr        //     11 + mem_expansion_cost
-    //                //  32039 + 9*data_size_words + mem_expansion_costs + code_deposit_cost
-  );
-  uint8 constant proxyCodeLength = 21;  // unfortunately can't use proxyCode.length for a constant, so this needs to be adapted...
-  //uint immutable proxyCodeLength = proxyCode.length;  // immutable works, but that's not ideal in terms of gas and memory
-
-  //bytes constant pushProxyCode = abi.encodePacked(hex'74', proxyCode, hex'3d52');
-  bytes constant pushProxyCode = abi.encodePacked(
-    uint8(PUSH1) - 1 + proxyCodeLength, //hex'74' corresponds to PUSH21,
-    proxyCode,
-    PUSH0, MSTORE // hex'3d52'
-  );
-  bytes constant returnProxyCode = abi.encodePacked(
-    PUSH1, proxyCodeLength,
-    PUSH1, 32 - proxyCodeLength,
-    RETURN
-  );
-  bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
-
-  bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
   constructor () {
     //bytes memory createCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
     //assert(createCode.equals(rawCode)); // TODO, see https://github.com/ethereum/solidity-examples/blob/master/examples/bytes/BytesExamples.sol#L14 and https://github.com/ethereum/solidity-examples/blob/master/src/bytes/Bytes.sol
-    assert(keccak256(proxyCreateCode) == keccak256(rawCode));
-    bytes memory createCodeMem = proxyCreateCode;
+    assert(keccak256(TinyCreate2.proxyCreateCode) == keccak256(TinyCreate2.rawCode));
+    bytes memory createCodeMem = TinyCreate2.proxyCreateCode;
     emit Created(address(this));
     address addr;
     assembly { addr := create(callvalue(), add(createCodeMem, 0x20), mload(createCodeMem)) }
