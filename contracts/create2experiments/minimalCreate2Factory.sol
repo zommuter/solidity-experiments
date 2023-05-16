@@ -96,14 +96,34 @@ contract MinimalCreate2Factory {
   address public immutable minimalCreate2Factory;
 
   // TODO document the blocks
+  // TODO using [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855) 0x5f PUSH0
   bytes constant loadSalt = hex'3d35';
   bytes constant copyCreationCode = hex'6020_3603_80_60203d_37';
   bytes constant create2call = hex'3d34f5';
   bytes constant returnAddr = hex'3d52_6014_600c_f3';
-  bytes constant proxyCode = abi.encodePacked(loadSalt, copyCreationCode, create2call, returnAddr);
 
-  bytes constant pushProxyCode = abi.encodePacked(hex'74', proxyCode, hex'3d52');
-  bytes constant returnProxyCode = hex'6015_600b_f3';  // TODO maybe calculate this "magically"
+  bytes constant proxyCode = abi.encodePacked(
+    // hexcode        //    gas | stack       | comments
+    loadSalt,         //      5 | salt        | 
+    copyCreationCode, //     19 + 3*data_size_words + mem_expansion_cost
+    create2call,      //  32004 + 6*data_size_words + mem_expansion_cost + code_deposit_cost
+    returnAddr        //     11 + mem_expansion_cost
+    //                //  32039 + 9*data_size_words + mem_expansion_costs + code_deposit_cost
+  );
+  uint8 constant proxyCodeLength = 21;  // unfortunately can't use proxyCode.length for a constant, so this needs to be adapted...
+  //uint immutable proxyCodeLength = proxyCode.length;  // immutable works, but that's not ideal in terms of gas and memory
+
+  //bytes constant pushProxyCode = abi.encodePacked(hex'74', proxyCode, hex'3d52');
+  bytes constant pushProxyCode = abi.encodePacked(
+    0x5f + proxyCodeLength, //hex'74',
+    proxyCode,
+    hex'3d52'
+  );
+  bytes constant returnProxyCode = abi.encodePacked(
+    hex'60', proxyCodeLength,
+    hex'60', 32 - proxyCodeLength,
+    hex'f3'
+  );
   bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
 
   bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
