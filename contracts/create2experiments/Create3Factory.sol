@@ -1,5 +1,7 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.18;
+
+// https://spdx.org/licenses/BUSL-1.1.html
 
 import "@0xsequence/create3/contracts/Create3.sol";
 
@@ -43,38 +45,3 @@ contract Create3Factory {
         return Create3.addressOf(_salt);
     }
 }
-
-/*
-contract DeployCreate3Factory {
-    event Deployed(address addr);
-    constructor(bytes32 _salt) payable {
-        address addr;
-        bytes memory storedCode = type(Create3Factory).creationCode;
-        assembly {
-            addr := create2(callvalue(), add(storedCode, 0x20), mload(storedCode), _salt)
-        }
-        require(addr.code.length != 0);
-        emit Deployed(addr);
-        selfdestruct(payable(msg.sender));
-    }
-
-    // adapted from https://docs.soliditylang.org/en/develop/control-structures.html#salted-contract-creations-create2
-    function predictAdress(bytes32 salt) external pure returns (address) {
-        address predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
-            bytes1(0xff),
-            address(this),
-            salt,
-            keccak256(abi.encodePacked(
-                type(Create3Factory).creationCode,
-                abi.encode(this)
-            ))
-        )))));
-        return predictedAddress;
-    }
-
-
-    function addressOf(bytes32 _salt) external pure returns (address) {
-
-    }
-}
-*/
