@@ -21,6 +21,7 @@
     "ethereum-waffle": "^4.0.10",
     "ethers": "^5.7.2",
     "hardhat-huff": "^1.0.19",
+    "nick-method": "^1.1.0",
     "save-dev": "^0.0.1-security"
   },
   "devDependencies": {
