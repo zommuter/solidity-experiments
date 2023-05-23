@@ -4,22 +4,25 @@ pragma solidity ^0.8.18;
 import "./asm.sol";
 
 library TinyCreate2 {
-  // TODO document the blocks
+  // push salt from first 32 bytes of calldata
   bytes constant loadSalt = abi.encodePacked(asm.PUSH0, asm.CALLDATALOAD); // hex'5f35'
+  // alternative with swapped calldata: PUSH1 32, CALLDATASIZE, SUB, DUP1, CALLDATALOAD, SWAP1 = 6 bytes... TODO check viability with later steps
 
+  // calldata = abi.encodePacked(salt, creationCode), so skip salt and copy the rest to mem[0x00:...]
   bytes constant copyCreationCode = abi.encodePacked(
-    asm.PUSH1, uint8(32),
-    asm.CALLDATASIZE, asm.SUB,
-    asm.DUP1, asm.PUSH1, uint8(32), asm.PUSH0,
-    asm.CALLDATACOPY
+    asm.PUSH1, uint8(32), asm.CALLDATASIZE, asm.SUB,
+    asm.DUP1, // duplicate CALLDATASIZE-32 = creationCode.length for CREATE2 call
+    // CALLDATACOPY(destOffset=0, offset=32, length=CALLDATASIZE-32 just DUP1ed)
+    asm.PUSH1, uint8(32), asm.PUSH0, asm.CALLDATACOPY
   );  //*/ hex'6020_3603_80_60205f_37';
   
+  // CREATE2(VALUE = CALLVALUE, OFFSET = 0, LENGTH = CALLDATASIZE-32 from DUP1 before, SALT = pushed in loadSalt)
   bytes constant create2call = abi.encodePacked(
     asm.PUSH0, asm.CALLVALUE, asm.CREATE2
   ); //*/ hex'5f34f5';
 
   bytes constant returnAddr = abi.encodePacked(
-    asm.PUSH0, asm.MSTORE,
+    asm.PUSH0, asm.MSTORE,  // mem[0x00:0x20] = CREATE2's returned address, zero-padded to 32 bytes
     asm.PUSH1, asm.ADDRLEN,
     asm.PUSH1, 32 - asm.ADDRLEN,
     asm.RETURN
@@ -36,12 +39,15 @@ library TinyCreate2 {
   uint8 constant proxyCodeLength = 21;  // unfortunately can't use proxyCode.length for a constant, so this needs to be adapted...
   //uint immutable proxyCodeLength = proxyCode.length;  // immutable works, but that's not ideal in terms of gas and memory
 
+  // write proxyCode to mem[0x00:0x20], note MSTORE zero-pads to 32 bytes!
   bytes constant pushProxyCode = abi.encodePacked(
+    // this gets the proper PUSHx instruction, assuming proxyCodeLength < 33
     uint8(asm.PUSH1) - 1 + proxyCodeLength, //hex'74' corresponds to PUSH21,
     proxyCode,
     asm.PUSH0, asm.MSTORE // hex'5f52'
   );
 
+  // RETURN(OFFSET=32-proxyCodeLength, LENGTH=proxyCodeLength) - note the non-zero offset due to the zero-padding by MSTORE
   bytes constant returnProxyCode = abi.encodePacked(
     asm.PUSH1, proxyCodeLength,
     asm.PUSH1, 32 - proxyCodeLength,
