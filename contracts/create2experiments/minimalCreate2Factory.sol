@@ -10,7 +10,8 @@ library TinyCreate2 {
   bytes1 constant CALLDATASIZE = hex'36';
   bytes1 constant CALLDATACOPY = hex'37';
   bytes1 constant RETURNDATASIZE = hex'3d';
-  bytes1 constant PUSH0 = RETURNDATASIZE;  // 0x5f from EIP-3855 could be used as well, but not sure if all relevant chains support that yet
+  //bytes1 constant PUSH0 = RETURNDATASIZE;  // 0x5f from EIP-3855 could be used as well, but not sure if all relevant chains support that yet
+  bytes1 constant PUSH0 = hex'5f';
   bytes1 constant MSTORE = hex'52';
   bytes1 constant PUSH1 = hex'60';
   bytes1 constant DUP1 = hex'80';
@@ -65,7 +66,8 @@ library TinyCreate2 {
 
   bytes constant proxyCreateCode = abi.encodePacked(pushProxyCode, returnProxyCode);
 
-  bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
+  //bytes constant rawCode = hex'74_3d35_602036038060203d37_3d34f5_3d526014600c_f3_3d52_6015600bf3';
+  bytes constant rawCode = hex'74_5f35_602036038060205f37_5f34f5_5f526014600c_f3_5f52_6015600bf3';
 }
 
 contract MinimalCreate2Factory {
